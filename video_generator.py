@@ -39,11 +39,9 @@ class VideoGenerator:
         self.output_dir = output_dir
         self.music_library_path = music_library_path
         
-        # Video encoding settings
         self.video_codec = 'libx264'
         self.audio_codec = 'aac'
         
-        # Quality presets
         self.quality_settings = {
             'low': {
                 'bitrate': '500k',
@@ -94,30 +92,24 @@ class VideoGenerator:
             img = Image.open(image_path)
             img = img.convert('RGB')
             
-            # Calculate aspect ratio
             img_aspect = img.size[0] / img.size[1]
             target_aspect = target_size[0] / target_size[1]
             
             if img_aspect > target_aspect:
-                # Image is wider - fit to width
                 new_width = target_size[0]
                 new_height = int(target_size[0] / img_aspect)
             else:
-                # Image is taller - fit to height
                 new_height = target_size[1]
                 new_width = int(target_size[1] * img_aspect)
             
             img = img.resize((new_width, new_height), Image.LANCZOS)
             
-            # Create black background
             background = Image.new('RGB', target_size, (0, 0, 0))
             
-            # Paste resized image centered
             paste_x = (target_size[0] - new_width) // 2
             paste_y = (target_size[1] - new_height) // 2
             background.paste(img, (paste_x, paste_y))
             
-            # Save processed image
             processed_path = image_path.replace('.', '_processed.')
             background.save(processed_path, 'JPEG', quality=95)
             
@@ -202,29 +194,23 @@ class VideoGenerator:
             if progress_callback:
                 progress_callback(10)
             
-            # Get all image files
             image_files = self._get_image_files()
             logger.info(f"Found {len(image_files)} images to process")
             
             if progress_callback:
                 progress_callback(20)
             
-            # Process each image
             for idx, image_path in enumerate(image_files):
                 logger.info(f"Processing image {idx + 1}/{len(image_files)}")
                 
-                # Resize image
                 processed_image = self._resize_image(image_path)
                 
-                # Create image clip
                 img_clip = ImageClip(processed_image, duration=duration_per_image)
                 
-                # Add fade transitions
                 if transition_duration > 0:
                     img_clip = fadein(img_clip, transition_duration)
                     img_clip = fadeout(img_clip, transition_duration)
                 
-                # Add text overlays for this image
                 clips_to_composite = [img_clip]
                 
                 for overlay in text_overlays:
@@ -238,7 +224,6 @@ class VideoGenerator:
                         )
                         clips_to_composite.append(text_clip)
                 
-                # Composite image with text overlays
                 if len(clips_to_composite) > 1:
                     composite_clip = CompositeVideoClip(clips_to_composite)
                     video_clips.append(composite_clip)
@@ -249,21 +234,18 @@ class VideoGenerator:
                     progress = 20 + int((idx + 1) / len(image_files) * 40)
                     progress_callback(progress)
             
-            # Concatenate all clips
             logger.info("Concatenating video clips")
             final_video = concatenate_videoclips(video_clips, method='compose')
             
             if progress_callback:
                 progress_callback(70)
             
-            # Add background music if provided
             if music_file:
                 music_path = os.path.join(self.music_library_path, music_file)
                 if os.path.exists(music_path):
                     logger.info(f"Adding background music: {music_file}")
                     audio = AudioFileClip(music_path)
                     
-                    # Loop audio if needed
                     if audio.duration < final_video.duration:
                         num_loops = int(final_video.duration / audio.duration) + 1
                         from moviepy.editor import concatenate_audioclips
@@ -275,14 +257,11 @@ class VideoGenerator:
             if progress_callback:
                 progress_callback(80)
             
-            # Generate output filename
             output_filename = f"video_{os.path.basename(self.upload_dir)}.mp4"
             output_path = os.path.join(self.output_dir, output_filename)
             
-            # Get quality settings
             quality = self.quality_settings.get(output_quality, self.quality_settings['high'])
             
-            # Write video file
             logger.info(f"Writing video to {output_path}")
             final_video.write_videofile(
                 output_path,
@@ -299,10 +278,8 @@ class VideoGenerator:
             if progress_callback:
                 progress_callback(95)
             
-            # Cleanup processed images
             self._cleanup_processed_images()
             
-            # Close clips
             final_video.close()
             for clip in video_clips:
                 clip.close()
@@ -312,8 +289,7 @@ class VideoGenerator:
             
             logger.info(f"Video generation completed: {output_path}")
             
-            # Log video info
-            file_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
+            file_size = os.path.getsize(output_path) / (1024 * 1024)
             logger.info(f"File size: {file_size:.2f} MB")
             logger.info(f"Duration: {final_video.duration:.2f} seconds")
             
@@ -321,7 +297,6 @@ class VideoGenerator:
             
         except Exception as e:
             logger.error(f"Error generating video: {str(e)}")
-            # Cleanup on error
             for clip in video_clips:
                 try:
                     clip.close()
@@ -341,19 +316,3 @@ class VideoGenerator:
                     pass
         except Exception as e:
             logger.warning(f"Error cleaning up processed images: {str(e)}")
-```
-
-**Запази файла (Ctrl + S)**
-
----
-
-## 📋 Quick Check
-
-След като създадеш тези 2 файла, кажи ми:
-```
-Статус:
-✅ Създадох config.py
-✅ Създадох video_generator.py
-✅ Виждам ги в Explorer
-
-Готов за последните 3 файла: ДА
