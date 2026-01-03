@@ -1,31 +1,30 @@
-# Use Python 3.9 slim image
 FROM python:3.9-slim
 
-# Install system dependencies for MoviePy and FFmpeg
+# Install system dependencies including ImageMagick
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    imagemagick \
     libsm6 \
     libxext6 \
     libxrender-dev \
+    libmagickwand-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Configure ImageMagick policy to allow text operations
+RUN sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
+
+# Set ImageMagick binary path for MoviePy
+ENV IMAGEMAGICK_BINARY=/usr/bin/convert
+
 WORKDIR /app
 
-# Copy requirements first for better caching
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
 COPY . .
 
-# Create necessary directories
 RUN mkdir -p uploads outputs music_library
 
-# Expose port
 EXPOSE 5000
 
-# Run with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "300", "app:app"]
