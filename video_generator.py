@@ -10,12 +10,11 @@ from moviepy.editor import (
     ImageClip, 
     concatenate_videoclips, 
     CompositeVideoClip,
-    AudioFileClip,
-    TextClip
+    AudioFileClip
 )
 from moviepy.video.fx.fadein import fadein
 from moviepy.video.fx.fadeout import fadeout
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +125,9 @@ class VideoGenerator:
         font_size: int = 50,
         color: str = 'white',
         duration: float = 3.0
-    ) -> TextClip:
+    ) -> ImageClip:
         """
-        Create text overlay for video
+        Create text overlay using PIL instead of TextClip
         
         Args:
             text: Text to display
@@ -138,27 +137,72 @@ class VideoGenerator:
             duration: Duration in seconds
             
         Returns:
-            TextClip object
+            ImageClip object with text
         """
         try:
+            import tempfile
+            
+            # Create transparent image for text
+            img_width, img_height = 1280, 720
+            img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(img)
+            
+            # Try to use DejaVu font, fall back to default
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                try:
+                    font = ImageFont.load_default()
+                except:
+                    font = None
+            
+            # Get text size
+            if font:
+                bbox = draw.textbbox((0, 0), text, font=font)
+            else:
+                bbox = draw.textbbox((0, 0), text)
+            
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Calculate position
             position_map = {
-                'center': 'center',
-                'top': ('center', 50),
-                'bottom': ('center', 620)
+                'center': ((img_width - text_width) // 2, (img_height - text_height) // 2),
+                'top': ((img_width - text_width) // 2, 50),
+                'bottom': ((img_width - text_width) // 2, img_height - text_height - 50)
             }
             
-            txt_clip = TextClip(
-                text,
-                fontsize=font_size,
-                color=color,
-                font='DejaVu-Sans-Bold',
-                stroke_color='black',
-                stroke_width=2,
-                method='caption',
-                size=(1200, None)
-            ).set_duration(duration).set_position(position_map.get(position, 'center'))
+            text_position = position_map.get(position, position_map['center'])
             
-            return txt_clip
+            # Color mapping
+            color_map = {
+                'white': (255, 255, 255),
+                'black': (0, 0, 0),
+                'red': (255, 0, 0),
+                'blue': (0, 0, 255),
+                'yellow': (255, 255, 0),
+                'green': (0, 255, 0)
+            }
+            
+            text_color = color_map.get(color, (255, 255, 255))
+            
+            # Draw text with outline/stroke
+            stroke_color = (0, 0, 0) if color != 'black' else (255, 255, 255)
+            
+            if font:
+                draw.text(text_position, text, font=font, fill=text_color, stroke_width=2, stroke_fill=stroke_color)
+            else:
+                draw.text(text_position, text, fill=text_color)
+            
+            # Save to temp file
+            temp_file = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+            img.save(temp_file.name, 'PNG')
+            temp_file.close()
+            
+            # Create ImageClip from the text image
+            text_clip = ImageClip(temp_file.name, duration=duration).set_position('center')
+            
+            return text_clip
             
         except Exception as e:
             logger.error(f"Error creating text overlay: {str(e)}")
