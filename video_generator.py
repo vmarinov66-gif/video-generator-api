@@ -151,7 +151,7 @@ class VideoGenerator:
                 text,
                 fontsize=font_size,
                 color=color,
-                font='Arial-Bold',
+                font='DejaVu-Sans-Bold',
                 stroke_color='black',
                 stroke_width=2,
                 method='caption',
