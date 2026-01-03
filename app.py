@@ -363,36 +363,53 @@ def get_video_status(job_id):
 @app.route('/api/video/download/<job_id>', methods=['GET'])
 def download_video(job_id):
     """Download generated video"""
+    # First check if job exists
     with job_lock:
         if job_id not in job_status:
-            return jsonify({
-                'success': False,
-                'error': 'Job not found'
-            }), 404
-        
-        status = job_status[job_id]
-        
-        if status['status'] != 'completed':
-            return jsonify({
-                'success': False,
-                'error': f"Video not ready. Current status: {status['status']}"
-            }), 400
-        
-        output_path = status.get('output_path')
+            # Job not in memory - try to find file directly
+            logger.warning(f"Job {job_id} not in status cache, searching for file")
+            import glob
+            pattern = os.path.join(Config['OUTPUT_FOLDER'], f'video_*{job_id[:8]}*.mp4')
+            files = glob.glob(pattern)
+            if files:
+                output_path = files[0]
+                logger.info(f"Found video file: {output_path}")
+            else:
+                # Try any recent video file
+                files = sorted(glob.glob(os.path.join(Config['OUTPUT_FOLDER'], 'video_*.mp4')), 
+                             key=os.path.getmtime, reverse=True)
+                if files:
+                    output_path = files[0]
+                    logger.info(f"Returning most recent video: {output_path}")
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Video file not found. It may have expired.'
+                    }), 404
+        else:
+            status = job_status[job_id]
+            
+            if status['status'] != 'completed':
+                return jsonify({
+                    'success': False,
+                    'error': f"Video not ready. Current status: {status['status']}"
+                }), 400
+            
+            output_path = status.get('output_path')
     
     if not output_path or not os.path.exists(output_path):
         return jsonify({
             'success': False,
-            'error': 'Video file not found'
+            'error': 'Video file not found on disk'
         }), 404
     
+    logger.info(f"Serving video file: {output_path}")
     return send_file(
         output_path,
         mimetype='video/mp4',
         as_attachment=True,
         download_name=os.path.basename(output_path)
     )
-
 
 # ======================= Error Handlers =======================
 
